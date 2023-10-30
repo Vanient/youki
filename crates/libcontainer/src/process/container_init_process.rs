@@ -12,6 +12,7 @@ use nix::sched::CloneFlags;
 use nix::sys::stat::Mode;
 use nix::unistd::setsid;
 use nix::unistd::{self, Gid, Uid};
+use nix::NixPath;
 use oci_spec::runtime::{IOPriorityClass, LinuxIOPriority, LinuxNamespaceType, Spec, User};
 use std::collections::HashMap;
 use std::os::unix::io::AsRawFd;
@@ -157,7 +158,13 @@ fn masked_path(path: &Path, mount_label: &Option<String>, syscall: &dyn Syscall)
             }
             SyscallError::Nix(nix::errno::Errno::ENOTDIR) => {
                 let label = match mount_label {
-                    Some(l) => format!("context=\"{l}\""),
+                    Some(l) => {
+                        if l == "" {
+                            "".to_string()
+                        } else {
+                            format!("context=\"{l}\"")
+                        }
+                    }
                     None => "".to_string(),
                 };
                 syscall
@@ -331,17 +338,24 @@ pub fn container_init_process(
         // we use pivot_root, but if we are on the host mount namespace, we will
         // use simple chroot. Scary things will happen if you try to pivot_root
         // in the host mount namespace...
-        if namespaces.get(LinuxNamespaceType::Mount)?.is_some() {
-            // change the root of filesystem of the process to the rootfs
-            syscall.pivot_rootfs(rootfs_path).map_err(|err| {
-                tracing::error!(?err, ?rootfs_path, "failed to pivot root");
-                InitProcessError::SyscallOther(err)
-            })?;
-        } else {
-            syscall.chroot(rootfs_path).map_err(|err| {
-                tracing::error!(?err, ?rootfs_path, "failed to chroot");
-                InitProcessError::SyscallOther(err)
-            })?;
+        match namespaces
+            .get(LinuxNamespaceType::Mount)?
+            .and_then(|c| c.path().as_ref())
+            .and_then(|p| Some(p.is_empty()))
+        {
+            Some(false) => {
+                // change the root of filesystem of the process to the rootfs
+                syscall.pivot_rootfs(rootfs_path).map_err(|err| {
+                    tracing::error!(?err, ?rootfs_path, "failed to pivot root");
+                    InitProcessError::SyscallOther(err)
+                })?;
+            }
+            None | Some(true) => {
+                syscall.chroot(rootfs_path).map_err(|err| {
+                    tracing::error!(?err, ?rootfs_path, "failed to chroot");
+                    InitProcessError::SyscallOther(err)
+                })?;
+            }
         }
 
         rootfs.adjust_root_mount_propagation(linux).map_err(|err| {

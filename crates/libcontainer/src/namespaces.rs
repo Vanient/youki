@@ -98,6 +98,15 @@ impl Namespaces {
         tracing::debug!("unshare or setns: {:?}", namespace);
         match namespace.path() {
             Some(path) => {
+                if path.as_os_str().is_empty() {
+                    self.command
+                        .unshare(get_clone_flag(namespace.typ())?)
+                        .map_err(|err| {
+                            tracing::error!(?err, ?namespace, "failed to unshare namespace");
+                            err
+                        })?;
+                    return Ok(());
+                }
                 let fd = fcntl::open(path, fcntl::OFlag::empty(), stat::Mode::empty()).map_err(
                     |err| {
                         tracing::error!(?err, ?namespace, "failed to open namespace file");

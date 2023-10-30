@@ -163,17 +163,17 @@ impl InitContainerBuilder {
         }
 
         if let Some(process) = spec.process() {
-            if let Some(profile) = process.apparmor_profile() {
-                let apparmor_is_enabled = apparmor::is_enabled().map_err(|err| {
-                    tracing::error!(?err, "failed to check if apparmor is enabled");
-                    LibcontainerError::OtherIO(err)
-                })?;
-                if !apparmor_is_enabled {
-                    tracing::error!(?profile,
-                        "apparmor profile exists in the spec, but apparmor is not activated on this system");
-                    Err(ErrInvalidSpec::AppArmorNotEnabled)?;
-                }
-            }
+            // if let Some(profile) = process.apparmor_profile() {
+            //     let apparmor_is_enabled = apparmor::is_enabled().map_err(|err| {
+            //         tracing::error!(?err, "failed to check if apparmor is enabled");
+            //         LibcontainerError::OtherIO(err)
+            //     })?;
+            //     if !apparmor_is_enabled {
+            //         tracing::error!(?profile,
+            //             "apparmor profile exists in the spec, but apparmor is not activated on this system");
+            //         Err(ErrInvalidSpec::AppArmorNotEnabled)?;
+            //     }
+            // }
 
             if let Some(io_priority) = process.io_priority() {
                 let priority = io_priority.priority();

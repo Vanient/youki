@@ -45,6 +45,28 @@ impl Devices {
             cgroup_root.join("devices.deny")
         };
 
+        if device.major() == Some(-1) || device.minor() == Some(-1) {
+            let mut major = device.major().unwrap().to_string();
+            let mut minor = device.minor().unwrap().to_string();
+            if device.major() == Some(-1) {
+                major = "*".to_string();
+            }
+            if device.minor() == Some(-1) {
+                minor = "*".to_string();
+            }
+
+            let data = format!(
+                "{} {}:{} {}",
+                &device.typ().unwrap_or_default().as_str(),
+                &major,
+                &minor,
+                &device.access().as_deref().unwrap_or("")
+            );
+            common::write_cgroup_file_str(path, &data)?;
+
+            return Ok(());
+        }
+
         common::write_cgroup_file_str(path, &device.to_string())?;
         Ok(())
     }

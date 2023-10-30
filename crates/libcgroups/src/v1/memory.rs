@@ -124,7 +124,7 @@ impl Controller for Memory {
                         cgroup_root.join(CGROUP_MEMORY_SWAPPINESS),
                         swappiness,
                     )?;
-                } else {
+                } else if swappiness != 18446744073709551615 {
                     // invalid swappiness value
                     return Err(V1MemoryControllerError::SwappinessOutOfRange {
                         supplied: swappiness,
